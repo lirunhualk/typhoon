@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>台风与气压系统动画演示</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="top-bar" aria-label="课件导航">
+        <div>
+          <p class="kicker">高中物理课堂课件</p>
+          <h1>台风与气压系统动画演示</h1>
+        </div>
+        <nav class="demo-tabs" role="tablist" aria-label="演示内容">
+          <button
+            id="tab-typhoon"
+            class="tab-button is-active"
+            type="button"
+            role="tab"
+            aria-selected="true"
+            aria-controls="typhoonDemo"
+            data-demo-target="typhoon"
+          >
+            台风风害演示
+          </button>
+          <button
+            id="tab-low-pressure"
+            class="tab-button"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            aria-controls="lowPressureDemo"
+            data-demo-target="low-pressure"
+          >
+            低气压系统形成
+          </button>
+        </nav>
+      </header>
+
+      <main
+        id="typhoonDemo"
+        class="app-shell demo-page is-active"
+        role="tabpanel"
+        aria-labelledby="tab-typhoon"
+        data-demo="typhoon"
+      >
+        <section class="stage-area" aria-label="台风中心气流和风害演示区">
+          <div class="stage-header">
+            <div>
+              <p class="kicker">台风中心低压</p>
+              <h2>台风中心上升气流演示</h2>
+            </div>
+            <div class="metric-strip" aria-label="当前参数">
+              <div class="metric">
+                <span>气压值</span>
+                <strong id="pressureReadout">945 hPa</strong>
+              </div>
+              <div class="metric">
+                <span>风速</span>
+                <strong id="windReadout">42 m/s</strong>
+              </div>
+              <div class="metric">
+                <span>破坏程度</span>
+                <strong id="damageReadout">较强</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="visual-frame">
+            <canvas id="typhoonCanvas" width="1200" height="720"></canvas>
+            <div class="legend-strip" aria-hidden="true">
+              <span>中心气压越低</span>
+              <span>上升气流越强</span>
+              <span>近地风速越大</span>
+              <span>树木房屋破坏越明显</span>
+            </div>
+          </div>
+        </section>
+
+        <aside class="control-panel" aria-label="演示参数控制">
+          <div class="panel-heading">
+            <p class="kicker">参数调节</p>
+            <h2>课堂演示控制台</h2>
+          </div>
+
+          <label class="slider-field" for="pressure">
+            <span class="slider-label">
+              <span>气压值</span>
+              <output id="pressureOutput" for="pressure">945 hPa</output>
+            </span>
+            <input
+              id="pressure"
+              type="range"
+              min="880"
+              max="1010"
+              step="1"
+              value="945"
+              aria-describedby="pressureHint"
+            />
+            <span id="pressureHint" class="hint">数值越低表示台风中心低压越明显。</span>
+          </label>
+
+          <label class="slider-field" for="wind">
+            <span class="slider-label">
+              <span>风速</span>
+              <output id="windOutput" for="wind">42 m/s</output>
+            </span>
+            <input
+              id="wind"
+              type="range"
+              min="10"
+              max="75"
+              step="1"
+              value="42"
+              aria-describedby="windHint"
+            />
+            <span id="windHint" class="hint">数值越高表示近地面风速越大。</span>
+          </label>
+
+          <div class="concept-box" aria-live="polite">
+            <p class="concept-title">当前现象</p>
+            <p id="conceptText">
+              中心气压偏低，空气快速向中心汇聚并上升，近地面风力增强，树木和房屋出现明显晃动。
+            </p>
+          </div>
+
+          <div class="scale-row" aria-label="破坏程度刻度">
+            <span>弱</span>
+            <div class="scale-track">
+              <div id="damageBar" class="scale-fill"></div>
+            </div>
+            <span>强</span>
+          </div>
+        </aside>
+      </main>
+
+      <main
+        id="lowPressureDemo"
+        class="app-shell demo-page"
+        role="tabpanel"
+        aria-labelledby="tab-low-pressure"
+        data-demo="low-pressure"
+        hidden
+      >
+        <section class="stage-area low-pressure-stage" aria-label="低气压系统形成动画演示区">
+          <div class="stage-header">
+            <div>
+              <p class="kicker">气压系统拓展</p>
+              <h2>低气压系统形成动画</h2>
+            </div>
+            <div class="metric-strip" aria-label="低气压系统要点">
+              <div class="metric">
+                <span>气压状况</span>
+                <strong>低气压</strong>
+              </div>
+              <div class="metric">
+                <span>气流状况</span>
+                <strong id="rotationReadout">气旋·北逆南顺</strong>
+              </div>
+              <div class="metric">
+                <span>天气现象</span>
+                <strong>阴雨</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="visual-frame">
+            <canvas id="pressureCanvas" width="1200" height="720"></canvas>
+            <div class="legend-strip pressure-legend" aria-hidden="true">
+              <span>近地面四周向中心辐合</span>
+              <span id="hemisphereLegend">北半球逆时针旋转</span>
+              <span>中心气流上升</span>
+              <span>水汽凝结形成阴雨</span>
+            </div>
+          </div>
+        </section>
+
+        <aside class="control-panel" aria-label="低气压系统知识控制">
+          <div class="panel-heading">
+            <p class="kicker">形成过程</p>
+            <h2>低气压原理卡</h2>
+          </div>
+
+          <label class="slider-field" for="formation">
+            <span class="slider-label">
+              <span>发展阶段</span>
+              <output id="formationOutput" for="formation">加强</output>
+            </span>
+            <input id="formation" type="range" min="0" max="100" step="1" value="72" />
+            <span class="hint">数值越高，中心低压、辐合旋转和上升气流越明显。</span>
+          </label>
+
+          <fieldset class="hemisphere-control">
+            <legend>旋转方向</legend>
+            <div class="segmented-control">
+              <button
+                class="segment-button is-active"
+                type="button"
+                aria-pressed="true"
+                data-hemisphere="north"
+              >
+                北半球
+              </button>
+              <button class="segment-button" type="button" aria-pressed="false" data-hemisphere="south">
+                南半球
+              </button>
+            </div>
+          </fieldset>
+
+          <div class="knowledge-list" aria-label="低气压系统知识表">
+            <div class="knowledge-row">
+              <span>水平方向</span>
+              <strong id="horizontalReadout">近地面由四周向中心旋转辐合，北半球逆时针</strong>
+            </div>
+            <div class="knowledge-row">
+              <span>垂直方向</span>
+              <strong>中心气流上升</strong>
+            </div>
+            <div class="knowledge-row">
+              <span>天气实例</span>
+              <strong>夏秋季节我国东南沿海的台风天气</strong>
+            </div>
+          </div>
+
+          <div class="concept-box low-pressure-note" aria-live="polite">
+            <p class="concept-title">动态说明</p>
+            <p id="pressureConceptText">
+              地面受热后空气上升，近地面形成低压，四周空气向中心旋转辐合，中心上升气流增强。
+            </p>
+          </div>
+        </aside>
+      </main>
+    </div>
+    <noscript>此课件需要启用 JavaScript 才能播放动画。</noscript>
+    <script src="script.js"></script>
+  </body>
+</html>
