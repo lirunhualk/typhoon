@@ -42,12 +42,67 @@ const pressureState = {
 
 let activeDemo = "typhoon";
 
+const typhoonRanges = {
+  pressureMin: 870,
+  pressureMax: 975,
+  windMin: 32.7,
+  windMax: 75,
+};
+
+const pressureWindPoints = [
+  { pressure: 975, wind: 32.7 },
+  { pressure: 950, wind: 41.5 },
+  { pressure: 920, wind: 51 },
+  { pressure: 870, wind: 70 },
+];
+
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
 function norm(value, min, max) {
   return clamp((value - min) / (max - min), 0, 1);
+}
+
+function interpolate(value, startValue, endValue, startResult, endResult) {
+  const ratio = (value - startValue) / (endValue - startValue);
+  return startResult + ratio * (endResult - startResult);
+}
+
+function windForPressure(pressure) {
+  const value = clamp(pressure, typhoonRanges.pressureMin, typhoonRanges.pressureMax);
+  for (let i = 0; i < pressureWindPoints.length - 1; i += 1) {
+    const high = pressureWindPoints[i];
+    const low = pressureWindPoints[i + 1];
+    if (value <= high.pressure && value >= low.pressure) {
+      return interpolate(value, high.pressure, low.pressure, high.wind, low.wind);
+    }
+  }
+  return value <= typhoonRanges.pressureMin ? 70 : typhoonRanges.windMin;
+}
+
+function pressureForWind(wind) {
+  const value = clamp(wind, typhoonRanges.windMin, typhoonRanges.windMax);
+  for (let i = 0; i < pressureWindPoints.length - 1; i += 1) {
+    const weak = pressureWindPoints[i];
+    const strong = pressureWindPoints[i + 1];
+    if (value >= weak.wind && value <= strong.wind) {
+      return interpolate(value, weak.wind, strong.wind, weak.pressure, strong.pressure);
+    }
+  }
+  return value >= 70 ? typhoonRanges.pressureMin : typhoonRanges.pressureMax;
+}
+
+function setPressure(value) {
+  const pressure = Math.round(clamp(value, typhoonRanges.pressureMin, typhoonRanges.pressureMax));
+  state.pressure = pressure;
+  pressureInput.value = String(pressure);
+}
+
+function setWind(value) {
+  const wind = Math.round(clamp(value, typhoonRanges.windMin, typhoonRanges.windMax) * 10) / 10;
+  state.wind = wind;
+  windInput.value = wind.toFixed(1);
 }
 
 function resizeCanvasElement(targetCanvas, targetContext) {
@@ -91,23 +146,39 @@ tabButtons.forEach((button) => {
 });
 
 function pressureStrength() {
-  return 1 - norm(state.pressure, 880, 1010);
+  return 1 - norm(state.pressure, typhoonRanges.pressureMin, typhoonRanges.pressureMax);
 }
 
 function windStrength() {
-  return norm(state.wind, 10, 75);
+  return norm(state.wind, typhoonRanges.windMin, typhoonRanges.windMax);
 }
 
 function severity() {
   return clamp(pressureStrength() * 0.52 + windStrength() * 0.48, 0, 1);
 }
 
+function isExtremeDamage(level = severity()) {
+  return level >= 0.94;
+}
+
+function typhoonGrade() {
+  if (state.pressure <= 870 || state.wind > 70) {
+    return "极端/历史极值";
+  }
+  if (state.pressure <= 920 || state.wind >= 51) {
+    return "超强台风";
+  }
+  if (state.pressure <= 950 || state.wind >= 41.5) {
+    return "强台风";
+  }
+  return "标准台风";
+}
+
 function updateReadouts() {
   const pressure = `${state.pressure} hPa`;
-  const wind = `${state.wind} m/s`;
+  const wind = `${state.wind.toFixed(1)} m/s`;
   const level = severity();
-  const label =
-    level < 0.28 ? "较弱" : level < 0.56 ? "中等" : level < 0.78 ? "较强" : "严重";
+  const label = typhoonGrade();
 
   pressureOutput.value = pressure;
   windOutput.value = wind;
@@ -116,18 +187,21 @@ function updateReadouts() {
   damageReadout.textContent = label;
   damageBar.style.width = `${Math.round(12 + level * 88)}%`;
 
-  if (level < 0.28) {
+  if (isExtremeDamage(level)) {
     conceptText.textContent =
-      "中心气压接近常压，空气汇聚和上升较弱，近地面风力小，树木和房屋基本保持稳定。";
+      "中心气压降至极低，中心风力同步增强，强烈上升气流带来更密集降水，树木被吹离原位，房屋被吹倒。";
+  } else if (level < 0.28) {
+    conceptText.textContent =
+      "中心气压接近常压，中心风力较弱，上升气流和降水都不明显，树木和房屋基本保持稳定。";
   } else if (level < 0.56) {
     conceptText.textContent =
-      "中心气压降低，空气向中心汇聚后上升，风速增大，树冠摇摆，房屋开始受到风压影响。";
+      "中心气压降低，中心风力随之增强，空气向中心汇聚后上升，降水开始增多，树冠摇摆。";
   } else if (level < 0.78) {
     conceptText.textContent =
-      "中心气压明显偏低，上升气流增强，近地面风速较大，树木大幅弯曲，屋顶出现松动。";
+      "中心气压明显偏低，上升气流增强并促成更多降水，近地面风速较大，树木大幅弯曲，屋顶出现松动。";
   } else {
     conceptText.textContent =
-      "中心气压很低，强烈上升气流带动空气快速汇聚旋转，高风速使树木倒伏，房屋破坏显著。";
+      "中心气压很低，强烈上升气流带动空气快速汇聚旋转，降水密集，高风速使树木倒伏，房屋破坏显著。";
   }
 }
 
@@ -173,9 +247,15 @@ function updatePressureReadouts() {
   }
 }
 
-function onInput() {
-  state.pressure = Number(pressureInput.value);
-  state.wind = Number(windInput.value);
+function onPressureInput() {
+  setPressure(Number(pressureInput.value));
+  setWind(windForPressure(state.pressure));
+  updateReadouts();
+}
+
+function onWindInput() {
+  setWind(Number(windInput.value));
+  setPressure(pressureForWind(state.wind));
   updateReadouts();
 }
 
@@ -184,8 +264,8 @@ function onFormationInput() {
   updatePressureReadouts();
 }
 
-pressureInput.addEventListener("input", onInput);
-windInput.addEventListener("input", onInput);
+pressureInput.addEventListener("input", onPressureInput);
+windInput.addEventListener("input", onWindInput);
 formationInput.addEventListener("input", onFormationInput);
 window.addEventListener("resize", resizeCanvas);
 
@@ -202,7 +282,7 @@ hemisphereButtons.forEach((button) => {
 });
 
 function ensureParticles() {
-  const target = Math.floor(90 + severity() * 145);
+  const target = Math.floor(80 + pressureStrength() * 150 + windStrength() * 35);
   while (state.particles.length < target) {
     state.particles.push({
       offset: Math.random() * Math.PI * 2,
@@ -231,24 +311,41 @@ function ensureParticles() {
   }
 }
 
-function drawBackground(width, height, groundY, level) {
+function drawBackground(width, height, groundY, level, pLevel, wLevel) {
   const sky = ctx.createLinearGradient(0, 0, 0, groundY);
-  sky.addColorStop(0, "#1d323b");
-  sky.addColorStop(0.55, "#263f48");
-  sky.addColorStop(1, "#425453");
+  sky.addColorStop(0, pLevel > 0.7 ? "#14272f" : "#1d323b");
+  sky.addColorStop(0.55, pLevel > 0.7 ? "#1d3440" : "#263f48");
+  sky.addColorStop(1, pLevel > 0.7 ? "#384a4f" : "#425453");
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, width, groundY);
 
-  const rainAlpha = 0.1 + level * 0.2;
+  const rainLevel = clamp(pLevel * 0.82 + level * 0.18, 0, 1);
+  const rainAlpha = 0.08 + rainLevel * 0.38;
   ctx.strokeStyle = `rgba(203, 229, 232, ${rainAlpha})`;
-  ctx.lineWidth = 1;
-  const rainGap = 26 - level * 10;
+  ctx.lineWidth = 1 + rainLevel * 1.25;
+  const rainGap = 30 - rainLevel * 20;
+  const rainSpeed = 34 + rainLevel * 72;
   for (let x = -60; x < width + 80; x += rainGap) {
-    const lean = 15 + windStrength() * 28;
+    const lean = 10 + wLevel * 42;
+    const offset = (state.time * rainSpeed) % rainGap;
     ctx.beginPath();
-    ctx.moveTo(x + (state.time * 42) % rainGap, 12);
-    ctx.lineTo(x + lean + (state.time * 42) % rainGap, groundY - 12);
+    ctx.moveTo(x + offset, 12);
+    ctx.lineTo(x + lean + offset, groundY - 12);
     ctx.stroke();
+  }
+
+  if (rainLevel > 0.58) {
+    ctx.strokeStyle = `rgba(238, 247, 244, ${(rainLevel - 0.58) * 0.52})`;
+    ctx.lineWidth = 1.2;
+    const burstGap = 44 - rainLevel * 18;
+    for (let x = -80; x < width + 100; x += burstGap) {
+      const offset = (state.time * (74 + rainLevel * 62)) % burstGap;
+      const yTop = groundY * (0.12 + 0.12 * Math.sin(x));
+      ctx.beginPath();
+      ctx.moveTo(x + offset, yTop);
+      ctx.lineTo(x + 24 + wLevel * 36 + offset, yTop + 74 + rainLevel * 80);
+      ctx.stroke();
+    }
   }
 
   const ground = ctx.createLinearGradient(0, groundY, 0, height);
@@ -358,7 +455,7 @@ function drawVortex(centerX, groundY, width, height, pLevel, wLevel, level) {
   ctx.fill();
 }
 
-function drawHouse(x, groundY, scale, level, windLevel) {
+function drawHouse(x, groundY, scale, level, windLevel, collapsed = false) {
   const shake = Math.sin(state.time * (7 + windLevel * 7)) * windLevel * 4;
   const roofShift = windLevel * 8 + shake;
 
@@ -370,6 +467,55 @@ function drawHouse(x, groundY, scale, level, windLevel) {
   ctx.beginPath();
   ctx.ellipse(58, 7, 82, 13, 0, 0, Math.PI * 2);
   ctx.fill();
+
+  if (collapsed) {
+    ctx.save();
+    ctx.translate(30, -3);
+    ctx.rotate(-0.96 - windLevel * 0.12);
+
+    ctx.fillStyle = "#d8c59b";
+    ctx.strokeStyle = "#5d4630";
+    ctx.lineWidth = 3;
+    ctx.fillRect(-8, -74, 112, 74);
+    ctx.strokeRect(-8, -74, 112, 74);
+
+    ctx.fillStyle = "#35606a";
+    ctx.fillRect(9, -52, 26, 24);
+    ctx.fillRect(66, -52, 26, 24);
+    ctx.fillStyle = "#5d4630";
+    ctx.fillRect(40, -39, 20, 39);
+
+    ctx.strokeStyle = "#463625";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(8, -66);
+    ctx.lineTo(24, -48);
+    ctx.lineTo(14, -30);
+    ctx.moveTo(74, -69);
+    ctx.lineTo(92, -50);
+    ctx.lineTo(78, -35);
+    ctx.stroke();
+
+    ctx.save();
+    ctx.translate(-28, -88);
+    ctx.rotate(-0.28 - windLevel * 0.16);
+    ctx.fillStyle = "#9d4f39";
+    ctx.beginPath();
+    ctx.moveTo(-12, 0);
+    ctx.lineTo(56, -50);
+    ctx.lineTo(124, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.fillStyle = "#8f3e2b";
+    ctx.rotate(0.5);
+    ctx.fillRect(96, -108, 48, 12);
+    ctx.restore();
+    ctx.restore();
+    return;
+  }
 
   ctx.fillStyle = "#d8c59b";
   ctx.strokeStyle = "#5d4630";
@@ -414,6 +560,65 @@ function drawHouse(x, groundY, scale, level, windLevel) {
     ctx.fillRect(96, -120, 44, 12);
     ctx.restore();
   }
+
+  ctx.restore();
+}
+
+function drawBlownAwayTree(x, groundY, scale, level, windLevel, flip = 1, phase = 0) {
+  const lift = 78 + windLevel * 45 + Math.sin(state.time * 3 + phase) * 8;
+  const drift = -44 * windLevel + Math.sin(state.time * 2.4 + phase) * 6;
+  const rotation = -flip * (1.12 + windLevel * 0.34) + Math.sin(state.time * 4 + phase) * 0.1;
+
+  ctx.save();
+  ctx.translate(x + drift, groundY - lift);
+  ctx.scale(scale, scale);
+
+  ctx.strokeStyle = `rgba(238, 247, 244, ${0.28 + level * 0.22})`;
+  ctx.lineWidth = 2;
+  for (let i = 0; i < 4; i += 1) {
+    const y = 18 + i * 14;
+    ctx.beginPath();
+    ctx.moveTo(flip * (52 + i * 12), y);
+    ctx.lineTo(flip * (108 + i * 18), y - 8);
+    ctx.stroke();
+  }
+
+  ctx.rotate(rotation);
+
+  ctx.strokeStyle = "#61482f";
+  ctx.lineWidth = 12;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.quadraticCurveTo(-flip * 8, -42, -flip * 18, -86);
+  ctx.stroke();
+
+  ctx.fillStyle = "#4a3627";
+  ctx.beginPath();
+  ctx.ellipse(1, 8, 18, 11, 0.28 * flip, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = "#5a3e2a";
+  ctx.lineWidth = 3;
+  for (let i = 0; i < 5; i += 1) {
+    const angle = -0.75 + i * 0.34;
+    ctx.beginPath();
+    ctx.moveTo(2, 8);
+    ctx.lineTo(Math.cos(angle) * 30, 8 + Math.sin(angle) * 18);
+    ctx.stroke();
+  }
+
+  const leafAlpha = 0.72 - level * 0.12;
+  ctx.fillStyle = `rgba(60, 122, 72, ${leafAlpha})`;
+  ctx.beginPath();
+  ctx.ellipse(-flip * 26, -100, 38, 27, -0.35 * flip, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(flip * 8, -116, 33, 24, 0.2 * flip, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(flip * 20, -86, 35, 25, 0.35 * flip, 0, Math.PI * 2);
+  ctx.fill();
 
   ctx.restore();
 }
@@ -473,7 +678,7 @@ function drawDebris(width, groundY, level, windLevel) {
   });
 }
 
-function drawLabels(width, groundY, pLevel, wLevel) {
+function drawLabels(width, groundY, pLevel, wLevel, level) {
   ctx.font = width < 680 ? "700 14px Microsoft YaHei, sans-serif" : "700 17px Microsoft YaHei, sans-serif";
   ctx.fillStyle = "rgba(238, 247, 244, 0.88)";
   ctx.fillText("中心低压", width * 0.51, groundY - 268 - pLevel * 80);
@@ -490,7 +695,11 @@ function drawLabels(width, groundY, pLevel, wLevel) {
   ctx.lineTo(width * 0.75, groundY - 39);
   ctx.stroke();
 
-  if (wLevel > 0.65) {
+  if (isExtremeDamage(level)) {
+    ctx.fillStyle = "rgba(231, 111, 81, 0.94)";
+    ctx.fillText("树被吹走", width * 0.16, groundY - 172);
+    ctx.fillText("房屋吹倒", width * 0.74, groundY - 132);
+  } else if (wLevel > 0.65) {
     ctx.fillStyle = "rgba(231, 111, 81, 0.9)";
     ctx.fillText("破坏增强", width * 0.15, groundY - 148);
   }
@@ -510,23 +719,33 @@ function renderTyphoon(delta) {
   const pLevel = pressureStrength();
   const wLevel = windStrength();
   const level = severity();
+  const extremeDamage = isExtremeDamage(level);
   const leftScale = Math.max(0.56, Math.min(0.9, width / 1360));
   const treeScale = Math.max(0.54, Math.min(0.86, width / 1350));
   const rightScale = Math.max(0.5, Math.min(0.78, width / 1620));
 
   ctx.clearRect(0, 0, width, height);
-  drawBackground(width, height, groundY, level);
+  drawBackground(width, height, groundY, level, pLevel, wLevel);
   drawDebris(width, groundY, level, wLevel);
 
-  drawHouse(width * 0.12, groundY - 2, leftScale, level, wLevel);
-  drawTree(width * 0.07, groundY - 2, treeScale, level, wLevel, 1);
-  drawTree(width * 0.25, groundY - 2, treeScale * 0.92, level, wLevel, 1);
+  drawHouse(width * 0.12, groundY - 2, leftScale, level, wLevel, extremeDamage);
+  if (extremeDamage) {
+    drawBlownAwayTree(width * 0.18, groundY - 2, treeScale, level, wLevel, 1, 0.2);
+    drawBlownAwayTree(width * 0.31, groundY - 2, treeScale * 0.88, level, wLevel, 1, 1.4);
+  } else {
+    drawTree(width * 0.07, groundY - 2, treeScale, level, wLevel, 1);
+    drawTree(width * 0.25, groundY - 2, treeScale * 0.92, level, wLevel, 1);
+  }
 
   drawVortex(width * 0.53, groundY, width, height, pLevel, wLevel, level);
 
-  drawTree(width * 0.75, groundY - 1, treeScale * 0.88, level, wLevel, -1);
-  drawHouse(Math.min(width * 0.8, width - 112 * rightScale - 10), groundY - 2, rightScale, level * 0.9, wLevel);
-  drawLabels(width, groundY, pLevel, wLevel);
+  if (extremeDamage) {
+    drawBlownAwayTree(width * 0.76, groundY - 1, treeScale * 0.82, level, wLevel, -1, 2.2);
+  } else {
+    drawTree(width * 0.75, groundY - 1, treeScale * 0.88, level, wLevel, -1);
+  }
+  drawHouse(Math.min(width * 0.8, width - 112 * rightScale - 10), groundY - 2, rightScale, level * 0.9, wLevel, extremeDamage);
+  drawLabels(width, groundY, pLevel, wLevel, level);
 }
 
 function ensurePressureParticles() {

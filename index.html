@@ -55,15 +55,15 @@
             <div class="metric-strip" aria-label="当前参数">
               <div class="metric">
                 <span>气压值</span>
-                <strong id="pressureReadout">945 hPa</strong>
+                <strong id="pressureReadout">950 hPa</strong>
               </div>
               <div class="metric">
                 <span>风速</span>
-                <strong id="windReadout">42 m/s</strong>
+                <strong id="windReadout">41.5 m/s</strong>
               </div>
               <div class="metric">
-                <span>破坏程度</span>
-                <strong id="damageReadout">较强</strong>
+                <span>台风等级</span>
+                <strong id="damageReadout">强台风</strong>
               </div>
             </div>
           </div>
@@ -73,7 +73,7 @@
             <div class="legend-strip" aria-hidden="true">
               <span>中心气压越低</span>
               <span>上升气流越强</span>
-              <span>近地风速越大</span>
+              <span>降水越多</span>
               <span>树木房屋破坏越明显</span>
             </div>
           </div>
@@ -88,35 +88,49 @@
           <label class="slider-field" for="pressure">
             <span class="slider-label">
               <span>气压值</span>
-              <output id="pressureOutput" for="pressure">945 hPa</output>
+              <output id="pressureOutput" for="pressure">950 hPa</output>
             </span>
             <input
               id="pressure"
               type="range"
-              min="880"
-              max="1010"
+              min="870"
+              max="975"
               step="1"
-              value="945"
+              value="950"
+              list="pressureMarks"
               aria-describedby="pressureHint"
             />
-            <span id="pressureHint" class="hint">数值越低表示台风中心低压越明显。</span>
+            <datalist id="pressureMarks">
+              <option value="975"></option>
+              <option value="950"></option>
+              <option value="920"></option>
+              <option value="870"></option>
+            </datalist>
+            <span id="pressureHint" class="hint">气压降低时，中心附近最大平均风速会同步增强。</span>
           </label>
 
           <label class="slider-field" for="wind">
             <span class="slider-label">
               <span>风速</span>
-              <output id="windOutput" for="wind">42 m/s</output>
+              <output id="windOutput" for="wind">41.5 m/s</output>
             </span>
             <input
               id="wind"
               type="range"
-              min="10"
+              min="32.7"
               max="75"
-              step="1"
-              value="42"
+              step="0.1"
+              value="41.5"
+              list="windMarks"
               aria-describedby="windHint"
             />
-            <span id="windHint" class="hint">数值越高表示近地面风速越大。</span>
+            <datalist id="windMarks">
+              <option value="32.7"></option>
+              <option value="41.5"></option>
+              <option value="51.0"></option>
+              <option value="70.0"></option>
+            </datalist>
+            <span id="windHint" class="hint">风速调整会反推对应中心气压，保持气压-风速联动。</span>
           </label>
 
           <div class="concept-box" aria-live="polite">
