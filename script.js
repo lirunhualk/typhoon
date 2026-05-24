@@ -311,42 +311,139 @@ function ensureParticles() {
   }
 }
 
-function drawBackground(width, height, groundY, level, pLevel, wLevel) {
-  const sky = ctx.createLinearGradient(0, 0, 0, groundY);
-  sky.addColorStop(0, pLevel > 0.7 ? "#14272f" : "#1d323b");
-  sky.addColorStop(0.55, pLevel > 0.7 ? "#1d3440" : "#263f48");
-  sky.addColorStop(1, pLevel > 0.7 ? "#384a4f" : "#425453");
-  ctx.fillStyle = sky;
-  ctx.fillRect(0, 0, width, groundY);
+function rainStrength(pLevel, level) {
+  return clamp(pLevel * 0.82 + level * 0.18, 0, 1);
+}
 
-  const rainLevel = clamp(pLevel * 0.82 + level * 0.18, 0, 1);
-  const rainAlpha = 0.08 + rainLevel * 0.38;
-  ctx.strokeStyle = `rgba(203, 229, 232, ${rainAlpha})`;
-  ctx.lineWidth = 1 + rainLevel * 1.25;
-  const rainGap = 30 - rainLevel * 20;
-  const rainSpeed = 34 + rainLevel * 72;
-  for (let x = -60; x < width + 80; x += rainGap) {
-    const lean = 10 + wLevel * 42;
-    const offset = (state.time * rainSpeed) % rainGap;
-    ctx.beginPath();
-    ctx.moveTo(x + offset, 12);
-    ctx.lineTo(x + lean + offset, groundY - 12);
-    ctx.stroke();
+function drawRainStreaks(width, groundY, rainLevel, wLevel, foreground = false) {
+  if (rainLevel <= 0.04) {
+    return;
   }
 
-  if (rainLevel > 0.58) {
-    ctx.strokeStyle = `rgba(238, 247, 244, ${(rainLevel - 0.58) * 0.52})`;
-    ctx.lineWidth = 1.2;
-    const burstGap = 44 - rainLevel * 18;
-    for (let x = -80; x < width + 100; x += burstGap) {
-      const offset = (state.time * (74 + rainLevel * 62)) % burstGap;
-      const yTop = groundY * (0.12 + 0.12 * Math.sin(x));
+  const gapX = foreground ? 58 - rainLevel * 26 : 28 - rainLevel * 16;
+  const gapY = foreground ? 82 - rainLevel * 34 : 58 - rainLevel * 30;
+  const dropLength = foreground ? 34 + rainLevel * 62 : 24 + rainLevel * 46;
+  const lean = (foreground ? 20 : 12) + wLevel * (foreground ? 58 : 42);
+  const speed = foreground ? 170 + rainLevel * 230 : 92 + rainLevel * 160;
+  const offset = (state.time * speed) % gapY;
+
+  ctx.save();
+  ctx.lineCap = "round";
+  ctx.strokeStyle = foreground
+    ? `rgba(232, 248, 255, ${0.34 + rainLevel * 0.38})`
+    : `rgba(190, 226, 235, ${0.14 + rainLevel * 0.34})`;
+  ctx.lineWidth = foreground ? 1.8 + rainLevel * 2.2 : 1 + rainLevel * 1.5;
+
+  for (let x = -width * 0.18; x < width + 140; x += gapX) {
+    const columnShift = Math.sin(x * 0.035) * gapY * 0.35;
+    for (let baseY = -gapY * 1.5; baseY < groundY + gapY; baseY += gapY) {
+      const y = ((baseY + offset + columnShift) % (groundY + gapY)) - gapY;
+      const wobble = Math.sin(state.time * 4 + x * 0.07 + baseY * 0.03) * (2 + rainLevel * 4);
       ctx.beginPath();
-      ctx.moveTo(x + offset, yTop);
-      ctx.lineTo(x + 24 + wLevel * 36 + offset, yTop + 74 + rainLevel * 80);
+      ctx.moveTo(x + wobble, y);
+      ctx.lineTo(x + lean + wobble, y + dropLength);
+      ctx.stroke();
+
+      if (foreground && rainLevel > 0.48) {
+        ctx.fillStyle = `rgba(232, 248, 255, ${0.18 + rainLevel * 0.22})`;
+        ctx.beginPath();
+        ctx.ellipse(x + lean + wobble, y + dropLength, 2.2 + rainLevel * 1.8, 1.2 + rainLevel, 0.38, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  ctx.restore();
+}
+
+function drawRainSheet(width, groundY, rainLevel, wLevel) {
+  if (rainLevel < 0.5) {
+    return;
+  }
+
+  const sheetAlpha = (rainLevel - 0.5) * 0.24;
+  const lean = 38 + wLevel * 70;
+  const sheetWidth = width * (0.16 + rainLevel * 0.08);
+  const speed = (state.time * (42 + rainLevel * 66)) % (sheetWidth * 1.6);
+
+  ctx.save();
+  for (let i = -1; i < 7; i += 1) {
+    const x = i * sheetWidth - speed;
+    const gradient = ctx.createLinearGradient(x, 0, x + sheetWidth, groundY);
+    gradient.addColorStop(0, `rgba(228, 246, 255, 0)`);
+    gradient.addColorStop(0.45, `rgba(228, 246, 255, ${sheetAlpha})`);
+    gradient.addColorStop(1, `rgba(228, 246, 255, 0)`);
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x + sheetWidth, 0);
+    ctx.lineTo(x + sheetWidth + lean, groundY);
+    ctx.lineTo(x + lean, groundY);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawRainImpacts(width, height, groundY, rainLevel, wLevel) {
+  if (rainLevel < 0.22) {
+    return;
+  }
+
+  const splashGap = 62 - rainLevel * 32;
+  const rippleAlpha = 0.12 + rainLevel * 0.22;
+
+  ctx.save();
+  ctx.strokeStyle = `rgba(210, 238, 235, ${rippleAlpha})`;
+  ctx.fillStyle = `rgba(164, 207, 210, ${0.08 + rainLevel * 0.16})`;
+  ctx.lineWidth = 1.2 + rainLevel * 0.8;
+
+  for (let x = -30; x < width + 60; x += splashGap) {
+    const phase = state.time * (5.5 + rainLevel * 4) + x * 0.06;
+    const splash = Math.max(0, Math.sin(phase));
+    const y = groundY + 16 + Math.sin(x * 0.04) * 7;
+    const drift = wLevel * 10 * Math.sin(phase * 0.5);
+
+    ctx.beginPath();
+    ctx.ellipse(x + drift, y + 8, 10 + rainLevel * 17, 2.2 + rainLevel * 2.2, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    if (splash > 0.58) {
+      ctx.beginPath();
+      ctx.moveTo(x + drift - 8, y);
+      ctx.lineTo(x + drift - 17 - wLevel * 6, y - 8 - splash * 8);
+      ctx.moveTo(x + drift, y);
+      ctx.lineTo(x + drift - 5 - wLevel * 7, y - 12 - splash * 10);
+      ctx.moveTo(x + drift + 8, y);
+      ctx.lineTo(x + drift + 11 - wLevel * 6, y - 8 - splash * 8);
       ctx.stroke();
     }
   }
+
+  const puddle = ctx.createLinearGradient(0, groundY, 0, height);
+  puddle.addColorStop(0, `rgba(150, 197, 201, ${0.06 + rainLevel * 0.1})`);
+  puddle.addColorStop(1, "rgba(73, 91, 91, 0)");
+  ctx.fillStyle = puddle;
+  ctx.fillRect(0, groundY + 8, width, Math.min(height - groundY, 70));
+  ctx.restore();
+}
+
+function drawForegroundRain(width, groundY, pLevel, wLevel, level) {
+  const rainLevel = rainStrength(pLevel, level);
+  drawRainStreaks(width, groundY, rainLevel, wLevel, true);
+}
+
+function drawBackground(width, height, groundY, level, pLevel, wLevel) {
+  const currentRainStrength = rainStrength(pLevel, level);
+  const sky = ctx.createLinearGradient(0, 0, 0, groundY);
+  sky.addColorStop(0, currentRainStrength > 0.62 ? "#122630" : "#1d323b");
+  sky.addColorStop(0.55, currentRainStrength > 0.62 ? "#1a333f" : "#263f48");
+  sky.addColorStop(1, currentRainStrength > 0.62 ? "#354a4d" : "#425453");
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, width, groundY);
+
+  drawRainSheet(width, groundY, currentRainStrength, wLevel);
+  drawRainStreaks(width, groundY, currentRainStrength, wLevel);
 
   const ground = ctx.createLinearGradient(0, groundY, 0, height);
   ground.addColorStop(0, "#87945f");
@@ -356,6 +453,7 @@ function drawBackground(width, height, groundY, level, pLevel, wLevel) {
 
   ctx.fillStyle = "rgba(7, 16, 19, 0.24)";
   ctx.fillRect(0, groundY + 10, width, 7);
+  drawRainImpacts(width, height, groundY, currentRainStrength, wLevel);
 }
 
 function drawArrow(x, y, length, alpha, bend = 0) {
@@ -745,6 +843,7 @@ function renderTyphoon(delta) {
     drawTree(width * 0.75, groundY - 1, treeScale * 0.88, level, wLevel, -1);
   }
   drawHouse(Math.min(width * 0.8, width - 112 * rightScale - 10), groundY - 2, rightScale, level * 0.9, wLevel, extremeDamage);
+  drawForegroundRain(width, groundY, pLevel, wLevel, level);
   drawLabels(width, groundY, pLevel, wLevel, level);
 }
 
