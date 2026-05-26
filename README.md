@@ -1,6 +1,6 @@
 # Typhoon Classroom Demo
 
-这是一个面向高中物理课堂的 GitHub Pages 静态课件，用来演示台风中心低压、上升气流、风速与树木房屋破坏程度之间的关系。
+这是一个面向高中地理课堂的 GitHub Pages 静态课件，用来演示台风中心低压、上升气流、风速与树木房屋破坏程度之间的关系。
 
 `台风风害演示` 参数范围参考课堂材料：
 
@@ -15,6 +15,20 @@ python -m http.server 4173
 ```
 
 然后打开 <http://localhost:4173/>。
+
+## Standalone 导出
+
+每次修改 `index.html`、`styles.css` 或 `script.js` 后，都重新生成 standalone 文件：
+
+```powershell
+node scripts/build-standalone.mjs
+```
+
+默认输出 `typhoon-standalone.html`。如需指定输出文件名，例如 `Typeform Standalone.html`：
+
+```powershell
+node scripts/build-standalone.mjs "Typeform Standalone.html"
+```
 
 ## GitHub Pages
 
